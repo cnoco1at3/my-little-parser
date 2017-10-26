@@ -1,0 +1,9 @@
+# VS related
+*.sln
+*.VC*
+*.vcxproj*
+# Test related
+/src/main.cpp
+/my-little-parser/
+/Release/
+/.vs/
