@@ -27,7 +27,8 @@ namespace mylittleparser
         template<typename T>
         inline T get (int idx)
         {
-            if (sizeof (T) != size_ || 0 > idx || nargs_ <= idx) throw this;
+            if (sizeof (T) != size_ || 0 > idx || (int) nargs_ <= idx)
+                throw this;
             return reinterpret_cast<T*>(data_)[idx];
         }
 
