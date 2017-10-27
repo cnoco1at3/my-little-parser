@@ -69,8 +69,10 @@ namespace mylittleparser
 
 
         ArgumentParser (int argc, char** argv)
-            : argc_ (argc), argv_ (argv)
-        { }
+            : argc_ (argc), argv_ (argv), help_(false)
+        { 
+            help_ = search<false> ("--help", "-h") < argc_;
+        }
 
 
         ~ArgumentParser ()
@@ -88,18 +90,22 @@ namespace mylittleparser
         {
             typedef std::remove_cv<T>::type U;
 
-            int idx = search<required> (name);
+            int idx = search<required> (name, abbr);
             parse<U, nargs> (name, idx);
         }
 
 
-        ParseArgs parse_args () { return std::move (parse_args_); }
+        ParseArgs parse_args () 
+        { 
+            if (help_) exit (0);
+            return parse_args_; 
+        }
 
 
     private:
 
 
-        template<bool required> int search (const char* name)
+        template<bool required> int search (const char* name, const char* abbr)
         {
             int idx = 1;
             while (idx < argc_ && strcoll (name, argv_[idx]) != 0) idx++;
@@ -107,9 +113,9 @@ namespace mylittleparser
         }
 
 
-        template<> int search<true> (const char* name)
+        template<> int search<true> (const char* name, const char* abbr)
         {
-            int idx = search<false> (name);
+            int idx = search<false> (name, abbr);
             if (argc_ == idx) { throw this; }
             return idx;
         }
@@ -173,7 +179,8 @@ namespace mylittleparser
 
         int argc_;
         char** argv_;
-        std::unordered_map<std::string, ParseEntry> parse_args_;
+        bool help_;
+        ParseArgs parse_args_;
     };
 }
 
