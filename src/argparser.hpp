@@ -89,16 +89,8 @@ namespace mylittleparser
         {
             typedef std::remove_cv<T>::type U;
 
-            int idx;
-            for (idx = 1; idx < argc_; ++idx)
-                if (strcoll (name, argv_[idx]) == 0) break;
-
-            if (required && argc_ == idx) { throw name; }
-
-            parse_args_[name].resize<U> (nargs);
-            for (int i = 1; i <= nargs && idx + i < argc_; ++i)
-                parse_args_[name].set<U> (
-                    i - 1, ParseType<U, nargs>::parse (argv_[idx + i]));
+            int idx = search<required> (name);
+            parse<U, nargs> (name, idx);
         }
 
 
@@ -108,16 +100,44 @@ namespace mylittleparser
     private:
 
 
+        template<bool required> int search (const char* name)
+        {
+            int idx = 1;
+            while (idx < argc_ && strcoll (name, argv_[idx]) != 0) idx++;
+            return idx;
+        }
+
+
+        template<> int search<true> (const char* name)
+        {
+            int idx = search<false> (name);
+            if (argc_ == idx) { throw this; }
+            return idx;
+        }
+
+
+        template<typename U, int nargs> void parse (const char* name, int idx)
+        {
+            parse_args_[name].resize<U> (nargs);
+            for (int i = 1; i <= nargs && idx + i < argc_; ++i)
+                parse_args_[name].set<U> (
+                    i - 1, ParseType<U, nargs>::parse (argv_[idx + i]));
+        }
+
+
+        template<> void parse<bool, 0> (const char* name, int idx)
+        {
+            parse_args_[name].resize<bool> (1);
+            parse_args_[name].set<bool> (0, idx < argc_);
+        }
+
+
         template<typename T, int nargs> struct ParseType { };
 
 
         template<int nargs> struct ParseType<bool, nargs>
         {
-            static typename std::enable_if<nargs == 0, bool>::type
-                parse (const char* str)
-            {
-                return true;
-            }
+            static typename std::enable_if<nargs == 0, bool>::type parse () { }
         };
 
 
