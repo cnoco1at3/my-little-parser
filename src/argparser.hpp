@@ -3,6 +3,7 @@
 
 
 #include <fstream>
+#include <unordered_map>
 
 
 namespace mylittleparser
@@ -10,31 +11,57 @@ namespace mylittleparser
     class ArgumentParser
     {
     public:
-        constexpr ArgumentParser (int argc, char** argv, char** envp = nullptr)
-            : m_argc (argc), m_argv (argv), m_envp (envp)
+        constexpr ArgumentParser (int argc, char** argv)
+            : argc_ (argc), argv_ (argv)
         { }
 
-        template<typename T>
-        struct SupportedType { static const bool value = false; };
-
-        template<> struct SupportedType<bool> { static const bool value = true; };
-        template<> struct SupportedType<int> { static const bool value = true; };
-        template<> struct SupportedType<char*> { static const bool value = true; };
-        template<> struct SupportedType<const char*> { static const bool value = true; };
-
         template <typename T, int nargs = 0, bool required = false>
-        typename std::enable_if<
-            SupportedType<typename std::remove_const<T>::type>::value
-        >::type
-            add_argument (const char* name, const char* help, const char* abbr = nullptr)
-        { 
-            printf ("%s %s", name, help);
+        void add_argument (const char* name, const char* help,
+                           const char* abbr = nullptr,
+                           typename std::decay<decltype(ParseType<T, nargs>::parse)>::type* = nullptr)
+        {
+            ParseType<T, nargs>::parse ("");
         }
 
     private:
-        int m_argc;
-        char** m_argv;
-        char** m_envp;
+        template<typename T, int nargs> struct ParseType { };
+
+        template<int nargs> struct ParseType<bool, nargs>
+        {
+            static typename std::enable_if<nargs == 0, bool>::type
+                parse (const char* str)
+            {
+                return str != nullptr;
+            }
+        };
+        template<int nargs> struct ParseType<int, nargs>
+        {
+            static typename std::enable_if<nargs >= 1, int>::type
+                parse (const char* str)
+            {
+                return std::atoi (str);
+            }
+        };
+        template<int nargs> struct ParseType<char*, nargs>
+        {
+            static typename std::enable_if<nargs >= 1, char*>::type
+                parse (const char* str)
+            {
+                return const_cast<char*>(str);
+            }
+        };
+        template<int nargs> struct ParseType<const char*, nargs>
+        {
+            static typename std::enable_if<nargs >= 1, const char*>::type
+                parse (const char* str)
+            {
+                return str;
+            }
+        };
+
+
+        int argc_;
+        char** argv_;
     };
 }
 
