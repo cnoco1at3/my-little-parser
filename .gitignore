@@ -1,41 +1,16 @@
-# Prerequisites
-*.d
+# This useful little ignore file are modified from Jason Stitt
+# who post this article on his blog:
+# https://jasonstitt.com/gitignore-whitelisting-patterns
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
-# VS related
-*.sln
-*.VC*
-*.vcxproj*
-/my-little-parser/
-/Release/
-/Debug/
-/.vs/
+# Ignore everything
+*
+# But descend into directories
+!*/
+# Recursively allow files under subtree
+!/src/**
+!/test/**
+!/examples/**
+# You can be specific with these rules
+!.gitignore
+!LICENSE
+!README.md
