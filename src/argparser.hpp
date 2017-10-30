@@ -57,8 +57,8 @@ namespace mylittleparser
 
 
         struct ArgProxy
-        {
-        public:
+    {
+    public:
 
 
             template<typename T> operator T() { return entry_->get<T> (idx_); }
@@ -192,7 +192,7 @@ namespace mylittleparser
             std::cout << "\n" << std::endl;
             for (std::pair<std::string, description_t> d : argd_)
             {
-                std::cout << std::left << std::setw (12) << d.second.name << " ";
+                std::cout << std::left << std::setw (12) << d.second.name <<" ";
                 if (d.second.abbr)
                     std::cout << std::left << std::setw (8) << d.second.abbr;
                 else std::cout << std::setw (8) << "none ";
@@ -233,7 +233,7 @@ namespace mylittleparser
             if (showh_)
                 argd_[name] = description_t (name, help, abbr);
             else
-                parse<U, nargs> (name, search<required> (name, abbr));
+            parse<U, nargs> (name, search<required> (name, abbr));
         }
 
 
