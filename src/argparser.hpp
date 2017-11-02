@@ -145,10 +145,10 @@ namespace mylittleparser
         void show_help () const
         {
             std::cout << "Usage ";
-            for (std::pair<std::string, description_t> d : argd_)
+            for (std::pair<std::string, DscTy_t> d : argd_)
                 std::cout << d.second.name << " ";
             std::cout << "\n" << std::endl;
-            for (std::pair<std::string, description_t> d : argd_)
+            for (std::pair<std::string, DscTy_t> d : argd_)
             {
                 std::cout << std::left << std::setw (12) << d.second.name << " ";
                 if (d.second.abbr)
@@ -171,9 +171,9 @@ namespace mylittleparser
             for (int i = 1; i < argc; ++i)
                 if (argi_.find (argv[i]) == argi_.end ()) argi_[argv[i]] = i;
             if ((showh_ = search<false> ("--help", "-h") != argc_))
-                argd_["--help"] = description_t ("--help",
-                                                 "Show this message and exit",
-                                                 "-h");
+                argd_["--help"] = DscTy_t ("--help",
+                                           "Show this message and exit",
+                                           "-h");
         }
 
 
@@ -192,7 +192,7 @@ namespace mylittleparser
         {
             typedef typename std::decay<T>::type U;
             if (showh_)
-                argd_[name] = description_t (name, help, abbr);
+                argd_[name] = DscTy_t (name, help, abbr);
             else
                 parse<U, nargs> (name, search<required> (name, abbr));
         }
@@ -206,19 +206,19 @@ namespace mylittleparser
 
 
     private:
-        typedef struct description
+        typedef struct DscTy
         {
-            description () { }
-            description (const char* name,
-                         const char* help,
-                         const char* abbr = nullptr)
+            DscTy () { }
+            DscTy (const char* name,
+                   const char* help,
+                   const char* abbr = nullptr)
                 : name (name), help (help), abbr (abbr)
             { }
             const char* name;
             const char* help;
             const char* abbr;
-        } description_t;
-        std::map<std::string, description_t> argd_;
+        } DscTy_t;
+        std::map<std::string, DscTy_t> argd_;
 
 
         const int argc_;                            //!< arguments count
@@ -291,14 +291,14 @@ namespace mylittleparser
     }
 
 
-    template<typename U, int nargs>
+    template<typename T, int nargs>
     inline void ArgParser::parse (const char* name, int idx)
     {
-        parse_args_[name].resize<U, nargs> ();
+        parse_args_[name].resize<T, nargs> ();
         for (int i = 1; nargs >= i && argc_ > idx + i; ++i)
-            parse_args_[name].set<U> (
+            parse_args_[name].set<T> (
                 i - 1,
-                PrsTy <typename Ty<U, nargs>::type>::parse (argv_[idx + i]));
+                PrsTy <typename Ty<T, nargs>::type>::parse (argv_[idx + i]));
     }
 
 
