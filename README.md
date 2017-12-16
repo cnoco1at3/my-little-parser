@@ -1,5 +1,7 @@
 # My Little Parser
 
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1474/badge)](https://bestpractices.coreinfrastructure.org/projects/1474)
+
 
 **My Little Parser** is an ongoing header only C++ lib for ini config files and command line arguments parsing.
 

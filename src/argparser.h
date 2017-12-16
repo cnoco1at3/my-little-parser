@@ -16,12 +16,6 @@
 namespace mylittleparser {
 
 namespace details {
-enum class value_type : uint8_t {
-    boolean,
-    integer,
-    string
-};
-
 /*!
 Type verfier
 */
