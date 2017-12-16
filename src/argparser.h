@@ -178,7 +178,7 @@ public:
 
     ~argument_parser() { }
 
-    template <typename T, int nargs, bool required = false>
+    template <typename T, int nargs = 0, bool required = false>
     void add_argument(const char* name, const char* help, const char* abbr = nullptr) {
         validate<T, nargs, required>(name, abbr);
         typedef typename std::decay<T>::type U;
