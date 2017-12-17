@@ -3,15 +3,15 @@
 
 
 int main(int argc, char** argv) {
-    mylittleparser::argument_parser parser(argc, argv);
-    parser.add_argument<int, 2>("--awssd", "no idea");
-    parser.add_argument<char*, 2>("--sth", nullptr, "-s");
-    parser.add_argument<bool, 0>("--world", nullptr);
+    mylittleparser::argument_parser parser;
+    parser.add_argument<int, 2>("--awssd", "Random option");
+    parser.add_argument<std::string, 2>("--sth", "-s", "Try somthing");
+    parser.add_argument<bool>("--world", "World file");
     mylittleparser::parsed_arguments parse_args = parser.parse_args();
-    std::cout << (parse_args["--world"].get<bool>(0) ? "true" : "false");
-    const char* p = parse_args["--sth"][0];
-    const char* q = parse_args["--sth"][1];
-    std::cout << p << q;
+    std::cout << (parse_args["--world"].get<bool>(0) ? "true" : "false") << std::endl;
+    std::string p = parse_args["--sth"][0];
+    std::string q = parse_args["--sth"][1];
+    std::cout << p << std::endl << q << std::endl;
 
     getchar();
 

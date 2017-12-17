@@ -7,94 +7,37 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
-#include <utility>
-#include <set>
-#include <map>
 #include <unordered_map>
 
+#define ARGPARSER_TMPL template<    \
+typename T,     \
+int nargs,      \
+bool required   \
+>
 
 namespace mylittleparser {
 
+/* Declarations */
+class basic_argument;
+typedef std::unordered_map<std::string, basic_argument> parsed_arguments;
+
 namespace details {
-/*!
-Type verfier
-*/
-template<typename T, class enable = void>
-struct is_valid_type {
-    static const bool value = false;
-};
-
-template<typename T>
-struct is_valid_type<
-    T,
-    typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value >::type> {
-    static const bool value = true;
-};
-
-template<typename T>
-struct is_valid_type<T, typename std::enable_if<std::is_floating_point<T>::value >::type> {
-    static const bool value = true;
-};
-
-template<typename T>
-struct is_valid_type<T, typename std::enable_if<std::is_same<T, char*>::value>::type> {
-    static const bool value = true;
-};
-
-/*!
-Type and number of arguments combination verifier
-*/
-template<typename T, int nargs, class enable = void>
-struct is_valid_argument {
-    static const bool value = false;
-};
-
-template<>
-struct is_valid_argument <bool, 0> {
-    static const bool value = true;
-};
-
-template<typename T, int nargs>
-struct is_valid_argument<T, nargs, typename std::enable_if<nargs >= 1>::type> {
-    static const bool value = is_valid_type<T>::value;
-};
-
-/*!
-Type parser
-*/
-template<typename T, class enable = void> struct parser;
-
-template<>
-struct parser<char*> {
-    static char* parse(char* s) {
-        return s;
-    }
-};
-
-template<typename T>
-struct parser<T, typename std::enable_if<std::is_integral<T>::value>::type> {
-    static T parse(char* s) {
-        return static_cast<T>(std::atoll(s));
-    }
-};
-
-template<typename T>
-struct parser<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
-    static T parse(char* s) {
-        return static_cast<T>(std::atof(s));
-    }
-};
-}   // namespace details
+ARGPARSER_TMPL
+struct arg_maker;
+}   //  namespace details
 
 class basic_argument {
 public:
     typedef struct dscrpt {
-        dscrpt() : name(nullptr), help(nullptr), abbr(nullptr), required(false) { }
-        dscrpt(const char* name, const char* help, bool required, const char* abbr = nullptr)
-            : name(name), help(help), required(required), abbr(abbr) { }
-        const char* name;
-        const char* help;
-        const char* abbr;
+        dscrpt() : required(false) { }
+        dscrpt(const std::string& name,
+               const std::string& help,
+               const std::string& flag,
+               bool required)
+            : name(name), help(help), flag(flag), required(required) { }
+        std::string name;
+        std::string help;
+        std::string flag;
         bool required;
     } dscrpt_t;
 
@@ -103,7 +46,7 @@ public:
 
     basic_argument(size_t size, size_t nargs, dscrpt_t description)
         : size_(size), nargs_(nargs), description_(description) {
-        data_ = new unsigned char[size * nargs];
+        data_ = new unsigned char[size * nargs]();
     }
 
     basic_argument(const basic_argument& other)
@@ -148,8 +91,13 @@ public:
         return *(reinterpret_cast<T*>(data_) + idx);
     }
 
+    dscrpt_t description() const {
+        return description_;
+    }
+
 private:
-    friend class argument_parser;
+    ARGPARSER_TMPL
+        friend struct details::arg_maker;
     template<typename T>
     inline void set(int idx, T val) {
         *(reinterpret_cast<T*>(data_) + idx) = val;
@@ -160,133 +108,270 @@ private:
     size_t nargs_;
     void* data_;
 };
-typedef std::unordered_map<std::string, basic_argument> parsed_arguments;
+
+namespace details {
+/*!
+Is string helper
+*/
+template<typename T>
+struct is_string
+    : public std::integral_constant<
+    bool,
+    std::is_same<char*, typename std::decay<T>::type>::value
+    || std::is_same<const char*, typename std::decay<T>::type>::value> { };
+
+template<>
+struct is_string<std::string> : std::true_type { };
+
+/*!
+Type verfier
+*/
+template<typename T, class enable = void>
+struct is_valid_type : std::false_type { };
+
+template<typename T>
+struct is_valid_type<
+    T,
+    typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value >::type>
+    : std::true_type { };
+
+template<typename T>
+struct is_valid_type<T, typename std::enable_if<std::is_floating_point<T>::value >::type>
+    : std::true_type { };
+
+template<typename T>
+struct is_valid_type<T, typename std::enable_if<is_string<T>::value>::type>
+    : std::true_type { };
+
+/*!
+Type and number of arguments combination verifier
+*/
+template<typename T, int nargs, class enable = void>
+struct is_valid_argument {
+    static const bool value = false;
+};
+
+template<>
+struct is_valid_argument <bool, 0> {
+    static const bool value = true;
+};
+
+template<typename T, int nargs>
+struct is_valid_argument<T, nargs, typename std::enable_if<nargs >= 1>::type> {
+    static const bool value = is_valid_type<T>::value;
+};
+
+/*!
+Type parser
+*/
+template<typename T, class enable = void> struct parser;
+
+template<>
+struct parser<char*> {
+    static char* parse(char* s) {
+        return s;
+    }
+};
+
+template<>
+struct parser<std::string> {
+    static std::string parse(char* s) {
+        return std::string(s);
+    }
+};
+
+template<typename T>
+struct parser<T, typename std::enable_if<std::is_integral<T>::value>::type> {
+    static T parse(char* s) {
+        return static_cast<T>(std::atoll(s));
+    }
+};
+
+template<typename T>
+struct parser<T, typename std::enable_if<std::is_floating_point<T>::value>::type> {
+    static T parse(char* s) {
+        return static_cast<T>(std::atof(s));
+    }
+};
+
+struct args_descriptor {
+    std::unordered_map<std::string, int> argi;
+    int argc;
+    char** argv;
+
+    args_descriptor(int c, char** v) : argc(c), argv(v) {
+        for (int i = 1; i < argc; ++i) argi[argv[i]] = i;
+    }
+
+    int find(const std::string& name, const std::string& flag) const {
+        int r1 = argi.find(name) != argi.end() ? argi.at(name) : -1;
+        int r2 = argi.find(flag) != argi.end() ? argi.at(flag) : -1;
+        return std::max(r1, r2);
+    }
+};
+
+ARGPARSER_TMPL
+struct arg_maker {
+    static const basic_argument make(const args_descriptor& argd,
+                                     const std::string& name,
+                                     const std::string& help,
+                                     const std::string& flag) {
+        basic_argument arg(sizeof(T), nargs, basic_argument::dscrpt_t(name, help, flag, required));
+        int idx = argd.find(name, flag);
+        if (idx != -1) {
+            for (int i = 0; i < nargs && idx + i + 1 < argd.argc; ++i)
+                arg.set(i, parser<T>::parse(argd.argv[idx + i + 1]));
+        }
+        return arg;
+    }
+};
+
+template<typename T, bool required>
+struct arg_maker<T, 0, required> {
+    static const basic_argument make(const args_descriptor& argd,
+                                     const std::string& name,
+                                     const std::string& help,
+                                     const std::string& flag) {
+        basic_argument arg(1, 1, basic_argument::dscrpt_t(name, help, flag, required));
+        int idx = argd.find(name, flag);
+        arg.set<bool>(0, idx != -1);
+        return arg;
+    }
+};
+
+ARGPARSER_TMPL
+struct arg_validator {
+    static const void validate(const args_descriptor& argd,
+                               const std::string& name, const std::string& flag) {
+        static_assert(details::is_valid_argument<std::decay<T>::type, nargs>::value,
+                      "Invalid combination of type and number of arguments");
+        if (name.empty())
+            throw std::domain_error("Argument name could not be empty");
+        if (name == "--help" || flag == "-h")
+            throw std::domain_error("Argument --help or -h is reserved.");
+    }
+};
+
+template<typename T, int nargs>
+struct arg_validator<T, nargs, true> {
+    static const void validate(const args_descriptor& argd,
+                               const std::string& name, const std::string& flag) {
+        arg_validator<T, nargs, false>::validate(argd, name, flag);
+        if (argd.find(name, flag) == -1)
+            throw std::domain_error(std::string("Required argument [") + name + "] not provided.");
+    }
+};
+
+}   // namespace details
 
 class argument_parser {
 public:
-    explicit argument_parser(int argc = __argc, char** argv = __argv)
-        : argc_(argc), argv_(argv) {
-        for (int i = 1; i < argc; ++i)
-            if (argi_.find(argv[i]) == argi_.end()) argi_[argv[i]] = i;
-        prsd_args_.emplace(std::string("--help"),
-                           basic_argument(1, 1,
-                                          basic_argument::dscrpt_t("--help",
-                                                                   "Show this message and exit",
-                                                                   false,
-                                                                   "-h")));
+    explicit argument_parser(std::string prog = "",
+                             std::string description = "",
+                             std::string epilog = "")
+        : argd_(__argc, __argv),
+        prog_(prog),
+        description_(description),
+        epilog_(epilog) {
+        init();
+    }
+
+    explicit argument_parser(int argc, char** argv,
+                             std::string prog = "",
+                             std::string description = "",
+                             std::string epilog = "")
+        : argd_(argc, argv),
+        prog_(prog),
+        description_(description),
+        epilog_(epilog) {
+        init();
     }
 
     ~argument_parser() { }
 
-    template <typename T, int nargs = 0, bool required = false>
-    void add_argument(const char* name, const char* help, const char* abbr = nullptr) {
-        validate<T, nargs, required>(name, abbr);
+    template<typename T, int nargs = 0, bool required = 0>
+    void add_argument(std::string name, std::string help) {
+        add_argument<T, nargs, required>(name, "", help);
+    }
+
+    template<typename T, int nargs = 0, bool required = 0>
+    void add_argument(std::string name, std::string flag, std::string help) {
         typedef typename std::decay<T>::type U;
-        argument_adder<U, nargs, required>::add(this, name, help, abbr);
+        if (!help_) {
+            details::arg_validator<T, nargs, required>::validate(argd_, name, flag);
+            prsd_args_.emplace(
+                name,
+                details::arg_maker<U, nargs, required>::make(argd_, name, help, flag));
+        }
+        else {
+            details::arg_validator<T, nargs, false>::validate(argd_, name, flag);
+            prsd_args_.emplace(
+                name,
+                details::arg_maker<U, 0, false>::make(argd_, name, help, flag));
+        }
     }
 
     const parsed_arguments& parse_args() const {
-        if (search("--help", "-h") != argc_) {
-            help();
+        if (help_) {
+            print_help();
             exit(0);
         }
         return prsd_args_;
     }
 
 private:
-    template<typename T, int nargs, bool required>
-    struct argument_adder {
-        static const void add(argument_parser* self,
-                              const char* name, const char* help, const char* abbr) {
-            basic_argument arg(sizeof(T), nargs, basic_argument::dscrpt_t(name, help, required, abbr));
-            int idx = self->search(name, abbr);
-            if (idx != self->argc_) {
-                for (int i = 0; i < nargs && idx + i + 1 < self->argc_; ++i)
-                    arg.set(i, details::parser<T>::parse(self->argv_[idx + i + 1]));
-                self->prsd_args_.emplace(name, arg);
-            }
-        }
-    };
-
-    template<typename T, bool required>
-    struct argument_adder<T, 0, required> {
-        static const void add(argument_parser* self,
-                              const char* name, const char* help, const char* abbr) {
-            basic_argument arg(1, 1, basic_argument::dscrpt_t(name, help, required, abbr));
-            int idx = self->search(name, abbr);
-            arg.set<bool>(0, idx != self->argc_);
-            self->prsd_args_.emplace(name, arg);
-        }
-    };
-
-    template <typename T, int nargs, bool required>
-    void validate(const char*name, const char* abbr) {
-        static_assert(details::is_valid_argument<std::decay<T>::type, nargs>::value,
-                      "Invalid combination of type and number of arguments");
-        if (name == nullptr) {
-            throw std::domain_error("Argument name could not be null");
-            return;
-        }
-        if (strcmp(name, "--help") == 0
-            || (abbr != nullptr && strcmp(abbr, "-h") == 0)) {
-            throw std::domain_error("Argument --help or -h is reserved.");
-            return;
-        }
-        if (!validate_required<required>(name, abbr)) {
-            throw std::domain_error(std::string("Required argument [") + name + "] not provided.");
-        }
+    void init() {
+        help_ = argd_.find(std::string("--help"), std::string("-h")) != -1;
+        if (prog_.empty()) prog_ = __argv[0];
     }
 
-    template<bool required> bool validate_required(const char* name, const char* abbr) {
-        return true;
-    }
-
-    template<> bool validate_required<true>(const char* name, const char* abbr) {
-        return !(search(name, abbr) == argc_);
-    }
-
-    int search(const char* name, const char* abbr) const {
-        int r(argc_);
-        if (name && argi_.find(name) != argi_.end()) {
-            r = argi_.at(name);
-            return r;
-        }
-        if (abbr && argi_.find(abbr) != argi_.end()) {
-            r = argi_.at(abbr);
-            return r;
-        }
-        return r;
-    }
-
-    void help() const {
-        std::cout << "Usage ";
+    void print_help() const {
+        std::cout
+            << "NAME " << prog_ << "\n\n"
+            << "SYNOPSIS " << prog_ << " ";
         for (auto kv : prsd_args_) {
-            std::string name = kv.second.description_.required ?
-                kv.second.description_.name
-                : "[" + std::string(kv.second.description_.name) + "]";
+            std::string name = kv.second.description().required ?
+                kv.second.description().name
+                : "[" + std::string(kv.second.description().name) + "]";
             std::cout << name << " ";
         }
-        std::cout << "\n" << std::endl;
-        for (auto kv : prsd_args_) {
-            basic_argument::dscrpt_t& description = kv.second.description_;
-            std::cout << std::left << std::setw(12) << description.name << " ";
-            if (description.abbr)
-                std::cout << std::left << std::setw(8) << description.abbr;
-            else
-                std::cout << std::setw(8) << "none ";
-            if (description.help)
-                std::cout << std::left << description.help;
-            std::cout << std::endl;
-        }
+        std::cout << "\n\n";
+        if (!description_.empty())
+            std::cout << description_ << "\n\n";
+        print_description(basic_argument::dscrpt_t(
+            "--help",
+            "Show this messsage and exit",
+            "-h",
+            false
+        ));
+        for (auto kv : prsd_args_)
+            print_description(kv.second.description());
+        if (!epilog_.empty())
+            std::cout << "\n\n" << epilog_ << std::endl;
+        getchar();
     }
 
-    const int argc_;                                //!< arguments count
-    char** argv_;                                   //!< arguments values
-    std::unordered_map<std::string, int> argi_;     //!< arguments indices
+    static void print_description(basic_argument::dscrpt_t&& description) {
+        std::cout << std::left << std::setw(12) << description.name << " ";
+        if (!description.flag.empty())
+            std::cout << std::left << std::setw(8) << description.flag << " ";
+        else
+            std::cout << std::setw(8) << "none" << " ";
+        if (!description.help.empty())
+            std::cout << std::left << description.help;
+        std::cout << std::endl;
+    }
+
+    details::args_descriptor argd_;
     parsed_arguments prsd_args_;
+
+    std::string prog_;
+    std::string description_;
+    std::string epilog_;
+
+    bool help_;
 };
 
 }   // namespace mylittleparser
-
 
 #endif  // SRC_ARGPARSER_H_
