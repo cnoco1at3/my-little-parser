@@ -42,21 +42,21 @@ public:
     } dscrpt_t;
 
     basic_argument()
-        : data_(nullptr), size_(0), nargs_(0) { }
+        : size_(0), nargs_(0), data_(nullptr) { }
 
     basic_argument(size_t size, size_t nargs, dscrpt_t description)
-        : size_(size), nargs_(nargs), description_(description) {
+        : description_(description), size_(size), nargs_(nargs) {
         data_ = new unsigned char[size * nargs]();
     }
 
     basic_argument(const basic_argument& other)
-        : size_(other.size_), nargs_(other.nargs_), description_(other.description_) {
+        : description_(other.description_), size_(other.size_), nargs_(other.nargs_) {
         data_ = new unsigned char[size_ * nargs_];
         std::memcpy(data_, other.data_, size_ * nargs_);
     }
 
     basic_argument(basic_argument&& other)
-        : size_(other.size_), nargs_(other.nargs_), description_(other.description_) {
+        : description_(other.description_), size_(other.size_), nargs_(other.nargs_) {
         data_ = other.data_;
         other.data_ = nullptr;
     }
@@ -106,7 +106,7 @@ private:
     dscrpt_t description_;
     size_t size_;
     size_t nargs_;
-    void* data_;
+    unsigned char* data_;
 };
 
 namespace details {
@@ -241,9 +241,9 @@ struct arg_maker<T, 0, required> {
 
 ARGPARSER_TMPL
 struct arg_validator {
-    static const void validate(const args_descriptor& argd,
-                               const std::string& name, const std::string& flag) {
-        static_assert(details::is_valid_argument<std::decay<T>::type, nargs>::value,
+    static void validate(const args_descriptor& argd,
+                         const std::string& name, const std::string& flag) {
+        static_assert(details::is_valid_argument<typename std::decay<T>::type, nargs>::value,
                       "Invalid combination of type and number of arguments");
         if (name.empty())
             throw std::domain_error("Argument name could not be empty");
@@ -254,8 +254,8 @@ struct arg_validator {
 
 template<typename T, int nargs>
 struct arg_validator<T, nargs, true> {
-    static const void validate(const args_descriptor& argd,
-                               const std::string& name, const std::string& flag) {
+    static void validate(const args_descriptor& argd,
+                         const std::string& name, const std::string& flag) {
         arg_validator<T, nargs, false>::validate(argd, name, flag);
         if (argd.find(name, flag) == -1)
             throw std::domain_error(std::string("Required argument [") + name + "] not provided.");
@@ -290,11 +290,6 @@ public:
     ~argument_parser() { }
 
     template<typename T, int nargs = 0, bool required = 0>
-    void add_argument(std::string name, std::string help) {
-        add_argument<T, nargs, required>(name, "", help);
-    }
-
-    template<typename T, int nargs = 0, bool required = 0>
     void add_argument(std::string name, std::string flag, std::string help) {
         typedef typename std::decay<T>::type U;
         if (!help_) {
@@ -309,6 +304,11 @@ public:
                 name,
                 details::arg_maker<U, 0, false>::make(argd_, name, help, flag));
         }
+    }
+
+    template<typename T, int nargs = 0, bool required = 0>
+    void add_argument(std::string name, std::string help) {
+        add_argument<T, nargs, required>(name, "", help);
     }
 
     const parsed_arguments& parse_args() const {
