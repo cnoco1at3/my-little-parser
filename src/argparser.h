@@ -15,7 +15,7 @@ int nargs,      \
 bool required   \
 >
 
-namespace mylittleparser {
+namespace cnocobot {
 
 /* Declarations */
 class basic_argument;
