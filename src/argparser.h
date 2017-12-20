@@ -15,7 +15,7 @@ int nargs,      \
 bool required   \
 >
 
-namespace cnocobot {
+namespace mylittleparser {
 
 /* Declarations */
 class basic_argument;
@@ -46,22 +46,19 @@ public:
 
     basic_argument(size_t size, size_t nargs, dscrpt_t description)
         : description_(description), size_(size), nargs_(nargs) {
-        data_ = new unsigned char[size * nargs]();
+        data_ = std::unique_ptr<unsigned char[]>(new unsigned char[size_ * nargs_]());
     }
 
     basic_argument(const basic_argument& other)
         : description_(other.description_), size_(other.size_), nargs_(other.nargs_) {
-        data_ = new unsigned char[size_ * nargs_];
-        std::memcpy(data_, other.data_, size_ * nargs_);
+        data_ = std::unique_ptr<unsigned char[]>(new unsigned char[size_ * nargs_]);
+        std::memcpy(data_.get(), other.data_.get(), size_ * nargs_);
     }
 
     basic_argument(basic_argument&& other)
         : description_(other.description_), size_(other.size_), nargs_(other.nargs_) {
-        data_ = other.data_;
-        other.data_ = nullptr;
+        data_.swap(other.data_);
     }
-
-    ~basic_argument() { if (data_) delete[] data_; }
 
 private:
     struct proxy {
@@ -86,9 +83,8 @@ public:
             \note This only provide basic type safety, we still don't have
                   the capability to know the type of the stored data.
         */
-        assert(sizeof(T) == size_ && 0 <= idx
-               && static_cast<int>(nargs_) > idx);
-        return *(reinterpret_cast<T*>(data_) + idx);
+        assert(sizeof(T) == size_ && 0 <= idx && static_cast<int>(nargs_) > idx);
+        return *(reinterpret_cast<T*>(data_.get()) + idx);
     }
 
     dscrpt_t description() const {
@@ -100,13 +96,13 @@ private:
         friend struct details::arg_maker;
     template<typename T>
     inline void set(int idx, T val) {
-        *(reinterpret_cast<T*>(data_) + idx) = val;
+        *(reinterpret_cast<T*>(data_.get()) + idx) = val;
     }
 
     dscrpt_t description_;
     size_t size_;
     size_t nargs_;
-    unsigned char* data_;
+    std::unique_ptr<unsigned char[]> data_;
 };
 
 namespace details {
@@ -289,7 +285,7 @@ public:
 
     ~argument_parser() { }
 
-    template<typename T, int nargs = 0, bool required = 0>
+    template<typename T, int nargs = 0, bool required = false>
     void add_argument(std::string name, std::string flag, std::string help) {
         typedef typename std::decay<T>::type U;
         if (!help_) {
@@ -306,7 +302,7 @@ public:
         }
     }
 
-    template<typename T, int nargs = 0, bool required = 0>
+    template<typename T, int nargs = 0, bool required = false>
     void add_argument(std::string name, std::string help) {
         add_argument<T, nargs, required>(name, "", help);
     }
