@@ -21,10 +21,10 @@ namespace cnocobot {
 class basic_argument;
 typedef std::unordered_map<std::string, basic_argument> parsed_arguments;
 
-namespace details {
+namespace detail {
 ARGPARSER_TMPL
 struct arg_maker;
-}   //  namespace details
+}   //  namespace detail
 
 class basic_argument {
 public:
@@ -93,7 +93,7 @@ public:
 
 private:
     ARGPARSER_TMPL
-        friend struct details::arg_maker;
+        friend struct detail::arg_maker;
     template<typename T>
     inline void set(int idx, T val) {
         *(reinterpret_cast<T*>(data_.get()) + idx) = val;
@@ -105,7 +105,7 @@ private:
     std::unique_ptr<unsigned char[]> data_;
 };
 
-namespace details {
+namespace detail {
 /*!
 Is string helper
 */
@@ -239,7 +239,7 @@ ARGPARSER_TMPL
 struct arg_validator {
     static void validate(const args_descriptor& argd,
                          const std::string& name, const std::string& flag) {
-        static_assert(details::is_valid_argument<typename std::decay<T>::type, nargs>::value,
+        static_assert(detail::is_valid_argument<typename std::decay<T>::type, nargs>::value,
                       "Invalid combination of type and number of arguments");
         if (name.empty())
             throw std::domain_error("Argument name could not be empty");
@@ -258,7 +258,7 @@ struct arg_validator<T, nargs, true> {
     }
 };
 
-}   // namespace details
+}   // namespace detail
 
 class argument_parser {
 public:
@@ -289,16 +289,16 @@ public:
     void add_argument(std::string name, std::string flag, std::string help) {
         typedef typename std::decay<T>::type U;
         if (!help_) {
-            details::arg_validator<T, nargs, required>::validate(argd_, name, flag);
+            detail::arg_validator<T, nargs, required>::validate(argd_, name, flag);
             prsd_args_.emplace(
                 name,
-                details::arg_maker<U, nargs, required>::make(argd_, name, help, flag));
+                detail::arg_maker<U, nargs, required>::make(argd_, name, help, flag));
         }
         else {
-            details::arg_validator<T, nargs, false>::validate(argd_, name, flag);
+            detail::arg_validator<T, nargs, false>::validate(argd_, name, flag);
             prsd_args_.emplace(
                 name,
-                details::arg_maker<U, 0, false>::make(argd_, name, help, flag));
+                detail::arg_maker<U, 0, false>::make(argd_, name, help, flag));
         }
     }
 
@@ -358,7 +358,7 @@ private:
         std::cout << std::endl;
     }
 
-    details::args_descriptor argd_;
+    detail::args_descriptor argd_;
     parsed_arguments prsd_args_;
 
     std::string prog_;
