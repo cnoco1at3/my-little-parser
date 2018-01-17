@@ -63,7 +63,8 @@ public:
 private:
     struct proxy {
     public:
-        template<typename T> operator T() { return entry_->get<T>(idx_); }
+        template<typename T>
+        inline operator T() const { return entry_->get<T>(idx_); }
 
     private:
         friend class basic_argument;
@@ -78,10 +79,13 @@ public:
     proxy operator[](int idx) const { return proxy(this, idx); }
 
     template<typename T>
+    inline operator T() const { return get<T>(0); }
+
+    template<typename T>
     inline T get(int idx = 0) const {
         /*!
-            \note This only provide basic type safety, we still don't have
-                  the capability to know the type of the stored data.
+        @note This only provide basic type safety, we still don't have
+              the capability to know the type of the stored data.
         */
         assert(sizeof(T) == size_ && 0 <= idx && static_cast<int>(nargs_) > idx);
         return *(reinterpret_cast<T*>(data_.get()) + idx);
