@@ -13,13 +13,10 @@
 namespace cnocobot {
 
 /* Declarations */
-class basic_argument;
-typedef std::unordered_map<std::string, basic_argument> parsed_arguments;
-
-namespace detail {
+namespace details {
 ARGPARSER_TMPL
 struct arg_maker;
-} //  namespace detail
+} // namespace details
 
 class basic_argument {
 public:
@@ -58,6 +55,8 @@ public:
 private:
   struct proxy {
   public:
+    template <typename T> inline operator T &() { return entry_->get<T>(idx_); }
+
     template <typename T> inline operator T() const {
       return entry_->get<T>(idx_);
     }
@@ -73,23 +72,37 @@ private:
 public:
   proxy operator[](int idx) const { return proxy(this, idx); }
 
-  template <typename T> inline operator T() const { return get<T>(0); }
+  template <typename T> inline operator T &() { return get<T>(); }
 
-  template <typename T> inline T get(int idx = 0) const {
+  template <typename T> inline operator T() const { return get<T>(); }
+
+  template <typename T> inline typename std::decay<T>::type &get(int idx = 0) {
     /*!
     @note This only provide basic type safety, we still don't have
           the capability to know the type of the stored data.
     */
-    assert(sizeof(T) == size_ && 0 <= idx && static_cast<int>(nargs_) > idx);
-    return *(reinterpret_cast<T *>(data_.get()) + idx);
+    typedef typename std::decay<T>::type U;
+    assert(sizeof(U) == size_ && 0 <= idx && static_cast<int>(nargs_) > idx);
+    return *(reinterpret_cast<U *>(data_.get()) + idx);
+  }
+
+  template <typename T>
+  inline typename std::decay<T>::type get(int idx = 0) const {
+    /*!
+    @note This only provide basic type safety, we still don't have
+          the capability to know the type of the stored data.
+    */
+    typedef typename std::decay<T>::type U;
+    assert(sizeof(U) == size_ && 0 <= idx && static_cast<int>(nargs_) > idx);
+    return *(reinterpret_cast<U *>(data_.get()) + idx);
   }
 
   dscrpt_t description() const { return description_; }
 
 private:
   ARGPARSER_TMPL
-  friend struct detail::arg_maker;
-  template <typename T> inline void set(int idx, T val) {
+  friend struct details::arg_maker;
+  template <typename T> inline void set(int idx, T&& val) {
     *(reinterpret_cast<T *>(data_.get()) + idx) = val;
   }
 
@@ -99,7 +112,19 @@ private:
   std::unique_ptr<unsigned char[]> data_;
 };
 
-namespace detail {
+class parsed_arguments
+    : public std::unordered_map<std::string, basic_argument> {
+  inline value_type &value(const key_type &key, value_type &def) {
+    return find(key) != end() ? at(key) : def;
+  }
+
+  inline const value_type &value(const key_type &key,
+                                 const value_type &def) const {
+    return find(key) != end() ? at(key) : def;
+  }
+};
+
+namespace details {
 /*!
 Is string helper
 */
@@ -226,7 +251,7 @@ struct arg_validator {
   static void validate(const args_descriptor &argd, const std::string &name,
                        const std::string &flag) {
     static_assert(
-        detail::is_valid_argument<typename std::decay<T>::type, nargs>::value,
+        details::is_valid_argument<typename std::decay<T>::type, nargs>::value,
         "Invalid combination of type and number of arguments");
     if (name.empty())
       throw std::domain_error("Argument name could not be empty");
@@ -245,7 +270,7 @@ template <typename T, int nargs> struct arg_validator<T, nargs, true> {
   }
 };
 
-} // namespace detail
+} // namespace details
 
 class argument_parser {
 public:
@@ -270,13 +295,13 @@ public:
   void add_argument(std::string name, std::string flag, std::string help) {
     typedef typename std::decay<T>::type U;
     if (!help_) {
-      detail::arg_validator<T, nargs, required>::validate(argd_, name, flag);
-      prsd_args_.emplace(name, detail::arg_maker<U, nargs, required>::make(
+      details::arg_validator<T, nargs, required>::validate(argd_, name, flag);
+      prsd_args_.emplace(name, details::arg_maker<U, nargs, required>::make(
                                    argd_, name, help, flag));
     } else {
-      detail::arg_validator<T, nargs, false>::validate(argd_, name, flag);
+      details::arg_validator<T, nargs, false>::validate(argd_, name, flag);
       prsd_args_.emplace(
-          name, detail::arg_maker<U, 0, false>::make(argd_, name, help, flag));
+          name, details::arg_maker<U, 0, false>::make(argd_, name, help, flag));
     }
   }
 
@@ -334,7 +359,7 @@ private:
     std::cout << std::endl;
   }
 
-  detail::args_descriptor argd_;
+  details::args_descriptor argd_;
   parsed_arguments prsd_args_;
 
   std::string prog_;
@@ -345,5 +370,7 @@ private:
 };
 
 } // namespace cnocobot
+
+#undef ARGPARSER_TMPL
 
 #endif // SRC_ARGPARSER_H_
